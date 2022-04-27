@@ -234,6 +234,7 @@ int main(void) {
 						move(size_y - 1, 0);
 						clrtoeol();
 						print_cell(active, start.r, start.c, y, x, 0);
+						print_cell(active, row, col, y, x, 3);
 						break;
 					}
 					uiloc goal = (uiloc){row, col};
