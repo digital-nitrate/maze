@@ -1,39 +1,51 @@
+/* Main code for editor executable. General
+ * behaviour is documented in the maze report.
+ *
+ * Note that the reason the resizing is not
+ * allowed, is that attempts to allow resizing
+ * seem to have curson visibility bug that has
+ * been difficult to locate the cause. Furthermore,
+ * it may require a larger rewriting of dialog
+ * functions that may change the function signature.
+ */
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <ncurses.h>
+#include <ncurses.h> // Terminal IO
 
-#include "maze.h"
-#include "file_env.h"
-#include "util_ui.h"
+#include "maze.h" // Maze Component
+#include "file_env.h" // Environment Communication (~ Expansion)
+#include "util_ui.h" // Basic Input Dialogs
 
 #ifndef NULL
 #define NULL ((void*)0)
 #endif
 
-#define BUFFERSIZE 64
-#define HISTORY_DEPTH 1000
+#define BUFFERSIZE 64 // Pathname Input Buffer Size
+#define HISTORY_DEPTH 1000 // Max Amount Of Moves For Testing
 
-char const* const top_msg = "Welcome To Mad Maze Editor";
-
+/* Utility function for displaying a maze cell on the terminal
+ * with set color and location.
+ */
 static inline void print_cell(maze m, unsigned int row, unsigned int col, int y, int x, int pair) {
 	unsigned int const ind = row * m.dim.c + col;
 	attr_set(A_NORMAL, 0, NULL);
-	mvaddstr(y - m.dim.r + 1 + (row << 1), x - (m.dim.c << 1) + 1 + (col << 2), "    ");
+	mvaddstr(y - m.dim.r + 1 + (row << 1), x - (m.dim.c << 1) + 1 + (col << 2), "    "); // Clear Location
 	attr_set((m.data[ind].d) ? A_UNDERLINE : A_NORMAL, pair, NULL);
-	mvprintw(y - m.dim.r + 1 + (row << 1), x - (m.dim.c << 1) + 1 + (col << 2), "%u", m.data[ind].len);	
+	mvprintw(y - m.dim.r + 1 + (row << 1), x - (m.dim.c << 1) + 1 + (col << 2), "%u", m.data[ind].len);	// Write
 }
 
 int main(void) {
-	char buffer[BUFFERSIZE];
-	size_t top_len = strlen(top_msg);
-	initscr();
-	start_color();
-	noecho();
-	keypad(stdscr, 1);
-	cbreak();
+	char buffer[BUFFERSIZE]; // Pathname buffer
+	size_t top_len = strlen("Welcome To Mad Maze Editor");
+	initscr(); // Starting ncurses terminal
+	start_color(); // Allow color
+	noecho(); // Disable echoing
+	keypad(stdscr, 1); // Allow keypad input
+	cbreak(); // Prevents line buffering and some special input behaviour
 	init_pair(0, COLOR_WHITE, COLOR_BLACK);
 	init_pair(1, COLOR_WHITE, COLOR_GREEN);
 	init_pair(2, COLOR_WHITE, COLOR_RED);
@@ -43,9 +55,9 @@ int main(void) {
 	attr_set(A_BOLD | A_UNDERLINE, 0, NULL);
 	int size_y;
 	int size_x;
-	getmaxyx(stdscr, size_y, size_x);
-	mvaddstr(0, (size_x - top_len) >> 1, top_msg);
-	maze active = (maze){(uiloc){0, 0}, NULL};
+	getmaxyx(stdscr, size_y, size_x); // Get screen dimensions
+	mvaddstr(0, (size_x - top_len) >> 1, "Welcome To Mad Maze Editor");
+	maze active = (maze){(uiloc){0, 0}, NULL}; // Initialize maze structure
 	int c;
 	unsigned int row = 0;
 	unsigned int col = 0;
@@ -54,9 +66,9 @@ int main(void) {
 	attr_set(A_NORMAL, 0, NULL);
 	mvprintw(1, x - 3, "%u", active.dim.r);
 	mvaddch(1, x, 'x');
-	mvprintw(1, x + 2, "%u", active.dim.c);
-	curs_set(0);
-	refresh();
+	mvprintw(1, x + 2, "%u", active.dim.c); // Display maze dimensions
+	curs_set(0); // Hide cursor
+	refresh(); // Update screen
 	while ((c = getch()) != '\n') {
 		switch (c) {
 			case KEY_RESIZE:
@@ -102,7 +114,6 @@ int main(void) {
 				if (active.dim.r == 0 || active.dim.c == 0) {
 					beep();
 				} else {
-					attr_set(A_NORMAL, 0, NULL);
 					move(y - active.dim.r + 1 + (row << 1), x - (active.dim.c << 1) + 1 + (col << 2));
 					int empty;
 					unsigned int amt = get_uint(2, size_y - 2, size_y - 1, A_NORMAL, 0, A_UNDERLINE, 4, &empty);
@@ -138,15 +149,16 @@ int main(void) {
 			{
 				unsigned int old_row = active.dim.r;
 				unsigned int old_col = active.dim.c;
-				attr_set(A_NORMAL, 0, NULL);
 				move(1, x - 3);
 				int empty;
 				unsigned amt = get_uint(2, size_y - 2, size_y - 1, A_NORMAL, 0, A_UNDERLINE, 4, &empty);
 				if (!empty) active.dim.r = amt;
+				attr_set(A_NORMAL, 0, NULL);
 				mvprintw(1, x - 3, "%u", active.dim.r);
 				move(1, x + 2);
 				amt = get_uint(2, size_y - 2, size_y - 1, A_NORMAL, 0, A_UNDERLINE, 4, &empty);
 				if (!empty) active.dim.c = amt;
+				attr_set(A_NORMAL, 0, NULL);
 				mvprintw(1, x + 2, "%u", active.dim.c);
 				for (int i = 2; i < size_y - 1; ++i) {
 					move(i, 0);
@@ -567,14 +579,14 @@ int main(void) {
 				}
 				break;
 		}
-		curs_set(0);
+		curs_set(0); // Ensure cursor is hidden
 		refresh();
 	}
-	free_maze(active);
-	endwin();
+	free_maze(active); // Release maze data
+	endwin(); // End ncurses terminal
 	return 0;
-	Fatal:
-	endwin();
+	Fatal: // Upon memory failure
+	endwin(); // End ncurses terminal
 	fprintf(stderr, "Fatal Error: No Memory\n");
 	return -1;
 }

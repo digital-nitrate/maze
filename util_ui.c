@@ -1,3 +1,8 @@
+/* Implementation of terminal dialog
+ * utility functions for reading basic
+ * values from user.
+ */
+
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -12,6 +17,13 @@
 #define NULL ((void*)0)
 #endif
 
+#undef __attribute__
+#ifdef __GNUC__
+#define __attribute__(args) __attribute__(args)
+#else
+#define __attribute__(args)
+#endif
+
 unsigned int get_uint(size_t digit_count, int y_exts, int y_exte, attr_t norm_attrs, int norm_pair, attr_t err_attrs, int err_pair, int* empty) {
 	size_t loc = 0;
 	size_t length = 0;
@@ -22,20 +34,20 @@ unsigned int get_uint(size_t digit_count, int y_exts, int y_exte, attr_t norm_at
 	getyx(stdscr, y, x);
 	for (size_t i = 0; i < digit_count; ++i) {
 		addch(' ');
-	}
+	} // Clear dialog space
 	for (int i = y_exts; i < y_exte; ++i) {
 		move(i, 0);
 		clrtoeol();
-	}
-	curs_set(1);
-	move(y, x);
-	refresh();
+	} // Clear information space
+	curs_set(1); // Set cursor to visible
+	move(y, x); // Correct position
+	refresh(); // Update screen
 	int c;
 	while ((c = getch()) != '\n') {
 		for (int i = y_exts; i < y_exte; ++i) {
 			move(i, 0);
 			clrtoeol();
-		}
+		} // Clear information space
 		switch (c) {
 			case KEY_RESIZE:
 				endwin();
@@ -111,9 +123,13 @@ unsigned int get_uint(size_t digit_count, int y_exts, int y_exte, attr_t norm_at
 		attr_set(norm_attrs, norm_pair, NULL);
 		refresh();
 	}
+	for (int i = y_exts; i < y_exte; ++i) {
+		move(i, 0);
+		clrtoeol();
+	} // Clear information space
 	buffer[length] = '\0';
 	if (empty != NULL) *empty = (length == 0) ? 1 : 0;
-	return atoi(buffer);
+	return atoi(buffer); // Convert buffer into an unsigned integer
 }
 
 size_t get_str(char* buffer, size_t buffer_size, int y_exts, int y_exte, attr_t norm_attrs, int norm_pair, attr_t err_attrs, int err_pair) {
@@ -123,25 +139,25 @@ size_t get_str(char* buffer, size_t buffer_size, int y_exts, int y_exte, attr_t 
 	int x;
 	int maxy __attribute__((unused));
 	int maxx;
-	getmaxyx(stdscr, maxy, maxx);
-	getyx(stdscr, y, x);
+	getmaxyx(stdscr, maxy, maxx); // Get screen dimensions
+	getyx(stdscr, y, x); // Get location
 	attr_set(norm_attrs, norm_pair, NULL);
 	for (size_t i = 0; i < buffer_size; ++i) {
 		addch(' ');
-	}
+	} // Clear input space
 	for (int i = y_exts; i < y_exte; ++i) {
 		move(i, 0);
 		clrtoeol();
-	}
-	curs_set(1);
-	move(y, x);
-	refresh();
+	} // Clear information space
+	curs_set(1); // Set cursor to visible
+	move(y, x); // Correct position
+	refresh(); // Update screen
 	int c;
 	while ((c = getch()) != '\n') {
 		for (int i = y_exts; i < y_exte; ++i) {
 			move(i, 0);
 			clrtoeol();
-		}
+		} // Clear information space
 		switch (c) {
 			case KEY_RESIZE:
 				endwin();
@@ -188,7 +204,7 @@ size_t get_str(char* buffer, size_t buffer_size, int y_exts, int y_exte, attr_t 
 				size_t matches;
 				size_t new_length;
 				char tmp[maxx * (y_exte - y_exts)];
-				if (buffer[0] == '~') {
+				if (buffer[0] == '~') { // Check if tilde expansion is needed
 					char expanded[EXPANPATH + buffer_size - 1];
 					char* const end = buffer + length;
 					char* curr = buffer + 1;
@@ -199,7 +215,7 @@ size_t get_str(char* buffer, size_t buffer_size, int y_exts, int y_exte, attr_t 
 						++curr;
 					}
 					char* const tilde_loc = curr;
-					if (*curr == '/') {
+					if (*curr == '/') { // Check if user is entered
 						*exp_curr = '\0';
 						size_t ext_len = tilde_exp(expanded, expanded, EXPANPATH);
 						exp_curr = expanded + ext_len;
@@ -234,7 +250,7 @@ size_t get_str(char* buffer, size_t buffer_size, int y_exts, int y_exte, attr_t 
 								addch(*ptr);
 								++ptr;
 							}
-						}
+						} // List matches if more than one
 					}
 				} else {
 					loc = new_length;
@@ -242,7 +258,7 @@ size_t get_str(char* buffer, size_t buffer_size, int y_exts, int y_exte, attr_t 
 					move(y, x);
 					for (size_t i = 0; i < new_length; ++i) {
 						addch(buffer[i]);
-					}
+					} // Add characters onto screen
 				}
 			}
 				break;
@@ -278,7 +294,7 @@ size_t get_str(char* buffer, size_t buffer_size, int y_exts, int y_exte, attr_t 
 	for (int i = y_exts; i < y_exte; ++i) {
 		move(i, 0);
 		clrtoeol();
-	}
+	} // Clear information space
 	buffer[length] = '\0';
 	return length;
 }

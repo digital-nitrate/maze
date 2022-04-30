@@ -1,3 +1,8 @@
+/* Implementation of maze related functions
+ * such as input and output, as well as maze
+ * solving algorithms.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,12 +13,12 @@
 #endif
 
 struct depth_cell {
-	unsigned int len : 8, d : 1, v : 2;
+	unsigned int len : 8, d : 1, v : 2; // 2-bit flag for visit checking
 };
 
 struct recu_cell {
-	unsigned int len : 8, d : 1, v : 2;
-	uiloc ploc[2];
+	unsigned int len : 8, d : 1, v : 2; // 2-bit flag for visit checking
+	uiloc ploc[2]; // 2 cell locations for back tracing
 };
 
 struct node {
@@ -21,7 +26,7 @@ struct node {
 	uiloc loc;
 	unsigned int dist;
 	unsigned char type;
-};
+}; // Structure for item in queue during the breadth-first search
 
 maze load_maze(FILE* in) {
 	int res;
@@ -71,18 +76,18 @@ unsigned int scan_maze_d(maze m, uiloc* path, uiloc start, uiloc end) {
 	if (data == NULL) return 0;
 	for (size_t i = 0; i < m.dim.r * m.dim.c; ++i) {
 		data[i] = (struct depth_cell){m.data[i].len, m.data[i].d, 0};
-	}
+	} // Prepare copy of maze
 	uiloc const dim = m.dim;
 	uiloc loc_c = start;
-	unsigned char type_c = 0;
-	data[start.r * dim.c + start.c].v |= 1;
-	*path = start;
-	uiloc* curr = path;
-	struct depth_cell* cell_c = data + (start.r * dim.c + start.c);
+	unsigned char type_c = 0; // Initialize location information
+	data[start.r * dim.c + start.c].v |= 1; // Set flag
+	*path = start; // Using path as a stack, add first cell
+	uiloc* curr = path; // Prepare pointer to stack top
+	struct depth_cell* cell_c = data + (start.r * dim.c + start.c); // Get cell pointer
 	#ifdef DEBUG_LOG
 	fputs("BEG\n", stderr);
 	#endif
-	while (loc_c.r != end.r || loc_c.c != end.c) {
+	while (loc_c.r != end.r || loc_c.c != end.c) { // Loop until at goal
 		#ifdef DEBUG_LOG
 		fprintf(stderr, "%tu - (%u, %u) - %s: Scan ... ", curr - path, loc_c.r + 1, loc_c.c + 1, (type_c) ? "diagonal" : "adjacent");
 		#endif
@@ -90,7 +95,7 @@ unsigned int scan_maze_d(maze m, uiloc* path, uiloc start, uiloc end) {
 		uiloc loc_n;
 		struct depth_cell* cell_n;
 		unsigned char type_n;
-		if (type_c) {
+		if (type_c) { // Diagonal motion
 			if (loc_c.r + len < dim.r && loc_c.c + len < dim.c) {
 				loc_n = (uiloc){loc_c.r + len, loc_c.c + len};
 				cell_n = data + (loc_n.r * dim.c + loc_n.c);
@@ -127,7 +132,7 @@ unsigned int scan_maze_d(maze m, uiloc* path, uiloc start, uiloc end) {
 				#endif
 				if (!(cell_n->v & (1 << type_n))) goto SetCell;
 			}
-		} else {
+		} else { // Adjacent motion
 			if (loc_c.r + len < dim.r) {
 				loc_n = (uiloc){loc_c.r + len, loc_c.c};
 				cell_n = data + (loc_n.r * dim.c + loc_n.c);
@@ -172,7 +177,7 @@ unsigned int scan_maze_d(maze m, uiloc* path, uiloc start, uiloc end) {
 		--curr;
 		loc_c = *curr;
 		type_c ^= cell_c->d;
-		cell_c = data + (loc_c.r * dim.c + loc_c.c);
+		cell_c = data + (loc_c.r * dim.c + loc_c.c); // Pop the stack
 		continue;
 		SetCell:
 		++curr;
@@ -180,7 +185,7 @@ unsigned int scan_maze_d(maze m, uiloc* path, uiloc start, uiloc end) {
 		loc_c = loc_n;
 		type_c = type_n;
 		*curr = loc_n;
-		cell_n->v |= (1 << type_n);
+		cell_n->v |= (1 << type_n); // Add to the stack
 		#ifdef DEBUG_LOG
 		fputs("... FORWARD\n", stderr);
 		#endif
@@ -188,7 +193,7 @@ unsigned int scan_maze_d(maze m, uiloc* path, uiloc start, uiloc end) {
 	#ifdef DEBUG_LOG
 	fputs("FIN\n", stderr);
 	#endif
-	free(data);
+	free(data); // Release maze copy
 	if (curr == path) {
 		return (dim.r == 1 && dim.c == 1) ? 1 : 0;
 	}
@@ -212,34 +217,34 @@ static inline int add_cell(struct recu_cell* data, uiloc dim, struct node** q, u
 		*q = new_node;
 	}
 	return 0;
-}
+} // Utility function for adding an item to the queue
 
 unsigned int scan_maze_b(maze m, uiloc* path, uiloc start, uiloc end) {
 	struct recu_cell* const data = malloc(sizeof(struct recu_cell) * m.dim.r * m.dim.c);
 	if (data == NULL) goto Error0;
 	for (size_t i = 0; i < m.dim.r * m.dim.c; ++i) {
 		data[i] = (struct recu_cell){m.data[i].len, m.data[i].d, 0, (uiloc){0, 0}, (uiloc){0, 0}};
-	}
+	} // Copy maze information
 	uiloc const dim = m.dim;
 	struct node* tmp = malloc(sizeof(struct node));
 	if (tmp == NULL) goto Error1;
 	*tmp = (struct node){NULL, start, 0, 0};
 	struct node* queue_first = tmp;
-	struct node* queue_last = tmp;
+	struct node* queue_last = tmp; // Prepare queue
 	data[start.r * dim.c + start.c].v |= 1;
 	#ifdef DEBUG_LOG
 	fputs("BEG\n", stderr);
 	#endif
-	while (queue_first != NULL) {
-		uiloc loc_c = queue_first->loc;
-		if (loc_c.r == end.r && loc_c.c == end.c) break;
+	while (queue_first != NULL) { // While queue is non-empty
+		uiloc loc_c = queue_first->loc; // Pull first element
+		if (loc_c.r == end.r && loc_c.c == end.c) break; // If matches goal, break out of the loop
 		unsigned char type_c = queue_first->type;
 		unsigned int dist_c = queue_first->dist;
 		unsigned int len = data[loc_c.r * dim.c + loc_c.c].len;
 		#ifdef DEBUG_LOG
 		fprintf(stderr, "PULL (%u, %u) - %s: Scan ... ", loc_c.r + 1, loc_c.c + 1, (type_c) ? "diagonal" : "adjacent");
 		#endif
-		if (type_c) {
+		if (type_c) { // Diagonal motion
 			if (loc_c.r + len < dim.r && loc_c.c + len < dim.c) {
 				#ifdef DEBUG_LOG
 				fputs("SE ", stderr);
@@ -272,7 +277,7 @@ unsigned int scan_maze_b(maze m, uiloc* path, uiloc start, uiloc end) {
 				int chk = add_cell(data, dim, &queue_last, loc_c, type_c, dist_c, loc_n);
 				if (chk < 0) goto Error2;
 			}
-		} else {
+		} else { // Adjacent motion
 			if (loc_c.r + len < dim.r) {
 				#ifdef DEBUG_LOG
 				fputs("S ", stderr);
@@ -311,7 +316,7 @@ unsigned int scan_maze_b(maze m, uiloc* path, uiloc start, uiloc end) {
 		#endif
 		struct node* mid = queue_first;
 		queue_first = queue_first->next;
-		free(mid);
+		free(mid); // Remove the lead item from the queue
 	}
 	#ifdef DEBUG_LOG
 	fputs("FIN\n", stderr);
@@ -326,13 +331,13 @@ unsigned int scan_maze_b(maze m, uiloc* path, uiloc start, uiloc end) {
 		--path_curr;
 		type_c ^= data[loc_c.r * dim.c + loc_c.c].d;
 		loc_c = data[loc_c.r * dim.c + loc_c.c].ploc[type_c];
-	}
+	} // Iterate back through the cells to build the path
 	while (queue_first != NULL) {
 		struct node* tmp = queue_first;
 		queue_first = queue_first->next;
 		free(tmp);
-	}
-	free(data);
+	} // Clear the queue
+	free(data); // Release maze copy
 	return path_count;
 	Error2:
 	while (queue_first != NULL) {
